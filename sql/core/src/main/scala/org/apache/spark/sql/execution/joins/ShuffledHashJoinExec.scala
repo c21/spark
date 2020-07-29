@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit._
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.{BoundReference, Expression}
 import org.apache.spark.sql.catalyst.expressions.codegen._
 import org.apache.spark.sql.catalyst.optimizer.BuildSide
 import org.apache.spark.sql.catalyst.plans._
@@ -95,7 +95,11 @@ case class ShuffledHashJoinExec(
     val thisPlan = ctx.addReferenceObj("plan", this)
     val (relationTerm, _) = prepareRelation(ctx)
     val buildRelation = s"$relationTerm = $thisPlan.buildHashedRelation($buildInput);"
-    val (streamInputVar, streamInputVarDecl) = createVars(ctx, streamedRow, streamedPlan.output)
+    ctx.currentVars = null
+    ctx.INPUT_ROW = streamedRow
+    val streamInputVar: Seq[ExprCode] = streamedPlan.output.zipWithIndex.map {
+      case (attr, i) => BoundReference(i, attr.dataType, attr.nullable).genCode(ctx)
+    }
 
     val join = joinType match {
       case _: InnerLike => codegenInner(ctx, streamInputVar)
@@ -117,7 +121,6 @@ case class ShuffledHashJoinExec(
        |
        |while ($streamedInput.hasNext()) {
        |  $streamedRow = (InternalRow) $streamedInput.next();
-       |  ${streamInputVarDecl.mkString("\n")}
        |  $join
        |
        |  if (shouldStop()) return;
