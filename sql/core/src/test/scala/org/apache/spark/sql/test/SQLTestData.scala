@@ -326,6 +326,7 @@ private[sql] object SQLTestData {
   case class TestData(key: Int, value: String)
   case class TestData2(a: Int, b: Int)
   case class TestData3(a: Int, b: Option[Int])
+  case class TestData4(key: Int)
   case class LargeAndSmallInts(a: Int, b: Int)
   case class DecimalData(a: BigDecimal, b: BigDecimal)
   case class BinaryData(a: Array[Byte], b: Int)

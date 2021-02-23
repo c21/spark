@@ -157,6 +157,7 @@ abstract class Optimizer(catalogManager: CatalogManager)
     //   since the other rules might make two separate Unions operators adjacent.
     Batch("Union", Once,
       RemoveNoopOperators,
+      CollapseProject,
       RemoveNoopUnion,
       CombineUnions) ::
     Batch("OptimizeLimitZero", Once,

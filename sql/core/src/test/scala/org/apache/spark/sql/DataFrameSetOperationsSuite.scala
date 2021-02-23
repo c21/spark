@@ -24,7 +24,7 @@ import org.apache.spark.sql.catalyst.plans.logical.Union
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.{ExamplePoint, ExamplePointUDT, SharedSparkSession}
-import org.apache.spark.sql.test.SQLTestData.NullStrings
+import org.apache.spark.sql.test.SQLTestData.{NullStrings, TestData4}
 import org.apache.spark.sql.types._
 
 class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
@@ -817,20 +817,9 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
   test("SPARK-34474: Remove unnecessary Union under Distinct") {
     Seq(RemoveNoopUnion.ruleName, "").map { ruleName =>
       withSQLConf(SQLConf.OPTIMIZER_EXCLUDED_RULES.key -> ruleName) {
-        val distinctUnionDF1 = testData.union(testData).distinct()
-        checkAnswer(distinctUnionDF1, testData.distinct())
-
-
-        val distinctUnionDF2 = testData.union(testData).dropDuplicates(Seq("key"))
-        checkAnswer(distinctUnionDF2, testData.dropDuplicates(Seq("key")))
-
-        val distinctUnionDF3 = sql(
-          """
-            |select key, value from testData
-            |union
-            |select key, value from testData
-            |""".stripMargin)
-        checkAnswer(distinctUnionDF3, testData.distinct())
+        val testData: DataFrame = spark.sparkContext.parallelize(
+            (1 to 100).map(i => TestData4(i))).toDF()
+        testData.createOrReplaceTempView("testData")
 
         val distinctUnionDF4 = sql(
           """
@@ -843,20 +832,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
             |  select key, key + 2 as expr
             |  from testData
             |)
-            |""".stripMargin)
-        val expected = sql(
-          """
-            |select key, expr
-            |from
-            |(
-            |  select key, key + 1 as expr
-            |  from testData
-            |  union all
-            |  select key, key + 2 as expr
-            |  from testData
-            |) group by key, expr
-            |""".stripMargin)
-        checkAnswer(distinctUnionDF4, expected)
+            |""".stripMargin).explain("extended")
       }
     }
   }
